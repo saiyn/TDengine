@@ -14,40 +14,47 @@
  */
 
 #define __USE_XOPEN
-
 #include "os.h"
-
+#include "tglobal.h"
 #include "shell.h"
 #include "shellCommand.h"
 #include "tkey.h"
+#include "tulog.h"
 
 #define OPT_ABORT 1 /* �Cabort */
 
 int indicator = 1;
 struct termios oldtio;
 
+extern int wcwidth(wchar_t c);
 void insertChar(Command *cmd, char *c, int size);
 const char *argp_program_version = version;
 const char *argp_program_bug_address = "<support@taosdata.com>";
 static char doc[] = "";
 static char args_doc[] = "";
 static struct argp_option options[] = {
-  {"host",       'h', "HOST",       0,                   "TDEngine server IP address to connect. The default host is localhost."},
+  {"host",       'h', "HOST",       0,                   "TDengine server IP address to connect. The default host is localhost."},
   {"password",   'p', "PASSWORD",   OPTION_ARG_OPTIONAL, "The password to use when connecting to the server."},
   {"port",       'P', "PORT",       0,                   "The TCP/IP port number to use for the connection."},
-  {"user",       'u', "USER",       0,                   "The TDEngine user name to use when connecting to the server."},
+  {"user",       'u', "USER",       0,                   "The user name to use when connecting to the server."},
+  {"user",       'A', "Auth",       0,                   "The user auth to use when connecting to the server."},
   {"config-dir", 'c', "CONFIG_DIR", 0,                   "Configuration directory."},
   {"commands",   's', "COMMANDS",   0,                   "Commands to run without enter the shell."},
   {"raw-time",   'r', 0,            0,                   "Output time as uint64_t."},
   {"file",       'f', "FILE",       0,                   "Script to run without enter the shell."},
+  {"directory",  'D', "DIRECTORY",  0,                   "Use multi-thread to import all SQL files in the directory separately."},
+  {"thread",     'T', "THREADNUM",  0,                   "Number of threads when using multi-thread to import data."},
   {"database",   'd', "DATABASE",   0,                   "Database to use when connecting to the server."},
   {"timezone",   't', "TIMEZONE",   0,                   "Time zone of the shell, default is local."},
+  {"netrole",    'n', "NETROLE",    0,                   "Net role when network connectivity test, default is NULL, options: client|clients|server."},
+  {"endport",    'e', "ENDPORT",    0,                   "Net test end port, default is 6042."},
+  {"pktlen",     'l', "PKTLEN",     0,                   "Packet length used for net test, default is 1000 bytes."},
   {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   /* Get the input argument from argp_parse, which we
   know is a pointer to our arguments structure. */
-  struct arguments *arguments = state->input;
+  SShellArguments *arguments = state->input;
   wordexp_t full_path;
 
   switch (key) {
@@ -59,7 +66,14 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       if (arg) arguments->password = arg;
       break;
     case 'P':
-      tsMgmtShellPort = atoi(arg);
+      if (arg) {
+        tsDnodeShellPort = atoi(arg);
+        arguments->port  = atoi(arg);
+      } else {
+        fprintf(stderr, "Invalid port\n");
+        return -1;
+      }
+
       break;
     case 't':
       arguments->timezone = arg;
@@ -67,12 +81,20 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     case 'u':
       arguments->user = arg;
       break;
+    case 'A':
+      arguments->auth = arg;
+      break;
     case 'c':
       if (wordexp(arg, &full_path, 0) != 0) {
         fprintf(stderr, "Invalid path %s\n", arg);
         return -1;
       }
-      strcpy(configDir, full_path.we_wordv[0]);
+      if (strlen(full_path.we_wordv[0]) >= TSDB_FILENAME_LEN) {
+        fprintf(stderr, "config file path: %s overflow max len %d\n", full_path.we_wordv[0], TSDB_FILENAME_LEN - 1);
+        wordfree(&full_path);
+        return -1;
+      }
+      tstrncpy(configDir, full_path.we_wordv[0], TSDB_FILENAME_LEN);
       wordfree(&full_path);
       break;
     case 's':
@@ -86,12 +108,51 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         fprintf(stderr, "Invalid path %s\n", arg);
         return -1;
       }
-      strcpy(arguments->file, full_path.we_wordv[0]);
+      tstrncpy(arguments->file, full_path.we_wordv[0], TSDB_FILENAME_LEN);
       wordfree(&full_path);
+      break;
+    case 'D':
+      if (wordexp(arg, &full_path, 0) != 0) {
+        fprintf(stderr, "Invalid path %s\n", arg);
+        return -1;
+      }
+      tstrncpy(arguments->dir, full_path.we_wordv[0], TSDB_FILENAME_LEN);
+      wordfree(&full_path);
+      break;
+    case 'T':
+      if (arg) {
+        arguments->threadNum = atoi(arg);
+      } else {
+        fprintf(stderr, "Invalid number of threads\n");
+        return -1;
+      }
       break;
     case 'd':
       arguments->database = arg;
       break;
+
+    case 'n':
+      arguments->netTestRole = arg;
+      break;
+
+    case 'e':
+      if (arg) {
+        arguments->endPort = atoi(arg);
+      } else {
+        fprintf(stderr, "Invalid end port\n");
+        return -1;
+      }
+      break;
+
+    case 'l':
+      if (arg) {
+        arguments->pktLen = atoi(arg);
+      } else {
+        fprintf(stderr, "Invalid packet length\n");
+        return -1;
+      }
+      break;
+      
     case OPT_ABORT:
       arguments->abort = 1;
       break;
@@ -104,10 +165,19 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 /* Our argp parser. */
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
-void shellParseArgument(int argc, char *argv[], struct arguments *arguments) {
+void shellParseArgument(int argc, char *argv[], SShellArguments *arguments) {
+  static char verType[32] = {0};
+  sprintf(verType, "version: %s\n", version);
+
+  argp_program_version = verType;
+  
   argp_parse(&argp, argc, argv, 0, 0, arguments);
   if (arguments->abort) {
-    error(10, 0, "ABORTED");
+    #ifndef _ALPINE
+      error(10, 0, "ABORTED");
+    #else
+      abort();
+    #endif
   }
 }
 
@@ -123,13 +193,13 @@ void shellReadCommand(TAOS *con, char *command) {
   // Read input.
   char c;
   while (1) {
-    c = getchar();
+    c = (char)getchar(); // getchar() return an 'int' value
 
     if (c < 0) {  // For UTF-8
       int count = countPrefixOnes(c);
       utf8_array[0] = c;
       for (int k = 1; k < count; k++) {
-        c = getchar();
+        c = (char)getchar();
         utf8_array[k] = c;
       }
       insertChar(&cmd, utf8_array, count);
@@ -175,10 +245,10 @@ void shellReadCommand(TAOS *con, char *command) {
           break;
       }
     } else if (c == '\033') {
-      c = getchar();
+      c = (char)getchar();
       switch (c) {
         case '[':
-          c = getchar();
+          c = (char)getchar();
           switch (c) {
             case 'A':  // Up arrow
               if (hist_counter != history.hstart) {
@@ -205,35 +275,35 @@ void shellReadCommand(TAOS *con, char *command) {
               moveCursorLeft(&cmd);
               break;
             case '1':
-              if ((c = getchar()) == '~') {
+              if ((c = (char)getchar()) == '~') {
                 // Home key
                 positionCursorHome(&cmd);
               }
               break;
             case '2':
-              if ((c = getchar()) == '~') {
+              if ((c = (char)getchar()) == '~') {
                 // Insert key
               }
               break;
             case '3':
-              if ((c = getchar()) == '~') {
+              if ((c = (char)getchar()) == '~') {
                 // Delete key
                 deleteChar(&cmd);
               }
               break;
             case '4':
-              if ((c = getchar()) == '~') {
+              if ((c = (char)getchar()) == '~') {
                 // End key
                 positionCursorEnd(&cmd);
               }
               break;
             case '5':
-              if ((c = getchar()) == '~') {
+              if ((c = (char)getchar()) == '~') {
                 // Page up key
               }
               break;
             case '6':
-              if ((c = getchar()) == '~') {
+              if ((c = (char)getchar()) == '~') {
                 // Page down key
               }
               break;
@@ -268,55 +338,25 @@ void *shellLoopQuery(void *arg) {
   pthread_cleanup_push(cleanup_handler, NULL);
 
   char *command = malloc(MAX_COMMAND_SIZE);
-
-  while (1) {
+  if (command == NULL){
+    uError("failed to malloc command");
+    return NULL;
+  }
+  
+  do {
     // Read command from shell.
-
     memset(command, 0, MAX_COMMAND_SIZE);
     set_terminal_mode();
     shellReadCommand(con, command);
     reset_terminal_mode();
-
-    if (command != NULL) {
-      // Run the command
-      shellRunCommand(con, command);
-    }
-  }
+  } while (shellRunCommand(con, command) == 0);
+  
+  tfree(command);
+  exitShell();
 
   pthread_cleanup_pop(1);
-
+  
   return NULL;
-}
-
-void shellPrintNChar(char *str, int width, bool printMode) {
-  int col_left = width;
-  wchar_t wc;
-  while (col_left > 0) {
-    if (*str == '\0') break;
-    char *tstr = str;
-    int byte_width = mbtowc(&wc, tstr, MB_CUR_MAX);
-    if (byte_width <= 0) break;
-    int col_width = wcwidth(wc);
-    if (col_width <= 0) {
-      str += byte_width;
-      continue;
-    }
-    if (col_left < col_width) break;
-    printf("%lc", wc);
-    str += byte_width;
-    col_left -= col_width;
-  }
-
-  while (col_left > 0) {
-    printf(" ");
-    col_left--;
-  }
-
-  if (!printMode) {
-    printf("|");
-  } else {
-    printf("\n");
-  }
 }
 
 int get_old_terminal_mode(struct termios *tio) {
@@ -369,7 +409,7 @@ void set_terminal_mode() {
   }
 }
 
-void get_history_path(char *history) { sprintf(history, "%s/%s", getpwuid(getuid())->pw_dir, HISTORY_FILE); }
+void get_history_path(char *history) { snprintf(history, TSDB_FILENAME_LEN, "%s/%s", getenv("HOME"), HISTORY_FILE); }
 
 void clearScreen(int ecmd_pos, int cursor_pos) {
   struct winsize w;
@@ -463,6 +503,7 @@ void showOnScreen(Command *cmd) {
 void cleanup_handler(void *arg) { tcsetattr(0, TCSANOW, &oldtio); }
 
 void exitShell() {
-  tcsetattr(0, TCSANOW, &oldtio);
+  /*int32_t ret =*/ tcsetattr(STDIN_FILENO, TCSANOW, &oldtio);
+  taos_cleanup();
   exit(EXIT_SUCCESS);
 }

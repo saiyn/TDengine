@@ -1,5 +1,5 @@
-# from .cursor import TDengineCursor
 from .cursor import TDengineCursor
+from .subscription import TDengineSubscription
 from .cinterface import CTaosInterface
 
 class TDengineConnection(object):
@@ -50,6 +50,14 @@ class TDengineConnection(object):
         """
         return CTaosInterface.close(self._conn)
 
+    def subscribe(self, restart, topic, sql, interval):
+        """Create a subscription.
+        """
+        if self._conn is None:
+            return None
+        sub = CTaosInterface.subscribe(self._conn, restart, topic, sql, interval)
+        return TDengineSubscription(sub)
+
     def cursor(self):
         """Return a new Cursor object using the connection.
         """
@@ -70,9 +78,7 @@ class TDengineConnection(object):
     def clear_result_set(self):
         """Clear unused result set on this connection.
         """
-        result = self._chandle.useResult(self._conn)[0]
-        if result:
-            self._chandle.freeResult(result)
+        pass
 
 if __name__ == "__main__":
     conn = TDengineConnection(host='192.168.1.107')

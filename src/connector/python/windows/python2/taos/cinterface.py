@@ -13,20 +13,20 @@ def _convert_microsecond_to_datetime(micro):
 def _crow_timestamp_to_python(data, num_of_rows, nbytes=None, micro=False):
     """Function to convert C bool row to python row
     """
-    _timstamp_converter = _convert_millisecond_to_datetime
+    _timestamp_converter = _convert_millisecond_to_datetime
     if micro:
-        _timstamp_converter = _convert_microsecond_to_datetime
+        _timestamp_converter = _convert_microsecond_to_datetime
 
     if num_of_rows > 0:
-        return list(map(_timstamp_converter, ctypes.cast(data,  ctypes.POINTER(ctypes.c_longlong))[:abs(num_of_rows)][::-1]))
+        return list(map(_timestamp_converter, ctypes.cast(data,  ctypes.POINTER(ctypes.c_longlong))[:abs(num_of_rows)][::1]))
     else:
-        return list(map(_timstamp_converter, ctypes.cast(data,  ctypes.POINTER(ctypes.c_longlong))[:abs(num_of_rows)]))
+        return list(map(_timestamp_converter, ctypes.cast(data,  ctypes.POINTER(ctypes.c_longlong))[:abs(num_of_rows)]))
 
 def _crow_bool_to_python(data, num_of_rows, nbytes=None, micro=False):
     """Function to convert C bool row to python row
     """
     if num_of_rows > 0:
-        return [ None if ele == FieldType.C_BOOL_NULL else bool(ele) for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_byte))[:abs(num_of_rows)][::-1] ]
+        return [ None if ele == FieldType.C_BOOL_NULL else bool(ele) for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_byte))[:abs(num_of_rows)][::1] ]
     else:
         return [ None if ele == FieldType.C_BOOL_NULL else bool(ele) for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_bool))[:abs(num_of_rows)] ]
 
@@ -34,7 +34,7 @@ def _crow_tinyint_to_python(data, num_of_rows, nbytes=None, micro=False):
     """Function to convert C tinyint row to python row
     """
     if num_of_rows > 0:
-        return [ None if ele == FieldType.C_TINYINT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_byte))[:abs(num_of_rows)][::-1] ]
+        return [ None if ele == FieldType.C_TINYINT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_byte))[:abs(num_of_rows)][::1] ]
     else:
         return [ None if ele == FieldType.C_TINYINT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_byte))[:abs(num_of_rows)] ]
     
@@ -42,7 +42,7 @@ def _crow_smallint_to_python(data, num_of_rows, nbytes=None, micro=False):
     """Function to convert C smallint row to python row
     """
     if num_of_rows > 0:
-        return [ None if ele == FieldType.C_SMALLINT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_short))[:abs(num_of_rows)][::-1]]
+        return [ None if ele == FieldType.C_SMALLINT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_short))[:abs(num_of_rows)][::1]]
     else:
         return [ None if ele == FieldType.C_SMALLINT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_short))[:abs(num_of_rows)] ]
 
@@ -50,7 +50,7 @@ def _crow_int_to_python(data, num_of_rows, nbytes=None, micro=False):
     """Function to convert C int row to python row
     """
     if num_of_rows > 0:
-        return [ None if ele == FieldType.C_INT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_int))[:abs(num_of_rows)][::-1] ]
+        return [ None if ele == FieldType.C_INT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_int))[:abs(num_of_rows)][::1] ]
     else:
         return [ None if ele == FieldType.C_INT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_int))[:abs(num_of_rows)] ]
 
@@ -58,7 +58,7 @@ def _crow_bigint_to_python(data, num_of_rows, nbytes=None, micro=False):
     """Function to convert C bigint row to python row
     """
     if num_of_rows > 0:
-        return [ None if ele == FieldType.C_BIGINT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_longlong))[:abs(num_of_rows)][::-1] ]
+        return [ None if ele == FieldType.C_BIGINT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_longlong))[:abs(num_of_rows)][::1] ]
     else:
         return [ None if ele == FieldType.C_BIGINT_NULL else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_longlong))[:abs(num_of_rows)] ]
 
@@ -66,7 +66,7 @@ def _crow_float_to_python(data, num_of_rows, nbytes=None, micro=False):
     """Function to convert C float row to python row
     """
     if num_of_rows > 0:
-        return [ None if math.isnan(ele) else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_float))[:abs(num_of_rows)][::-1] ]
+        return [ None if math.isnan(ele) else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_float))[:abs(num_of_rows)][::1] ]
     else:
         return [ None if math.isnan(ele) else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_float))[:abs(num_of_rows)] ]
 
@@ -74,7 +74,7 @@ def _crow_double_to_python(data, num_of_rows, nbytes=None, micro=False):
     """Function to convert C double row to python row
     """
     if num_of_rows > 0:
-        return [ None if math.isnan(ele) else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_double))[:abs(num_of_rows)][::-1] ]
+        return [ None if math.isnan(ele) else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_double))[:abs(num_of_rows)][::1] ]
     else:
         return [ None if math.isnan(ele) else ele for ele in ctypes.cast(data,  ctypes.POINTER(ctypes.c_double))[:abs(num_of_rows)] ]
 
@@ -82,7 +82,7 @@ def _crow_binary_to_python(data, num_of_rows, nbytes=None, micro=False):
     """Function to convert C binary row to python row
     """
     if num_of_rows > 0:
-        return [ None if ele.value[0:1] == FieldType.C_BINARY_NULL else ele.value.decode('utf-8') for ele in (ctypes.cast(data,  ctypes.POINTER(ctypes.c_char * nbytes)))[:abs(num_of_rows)][::-1]]
+        return [ None if ele.value[0:1] == FieldType.C_BINARY_NULL else ele.value.decode('utf-8') for ele in (ctypes.cast(data,  ctypes.POINTER(ctypes.c_char * nbytes)))[:abs(num_of_rows)][::1]]
     else:
         return [ None if ele.value[0:1] == FieldType.C_BINARY_NULL else ele.value.decode('utf-8') for ele in (ctypes.cast(data,  ctypes.POINTER(ctypes.c_char * nbytes)))[:abs(num_of_rows)]]
 
@@ -96,7 +96,8 @@ def _crow_nchar_to_python(data, num_of_rows, nbytes=None, micro=False):
     for i in range(abs(num_of_rows)):
         try:
             if num_of_rows >= 0:
-                res.append( (ctypes.cast(data+nbytes*(abs(num_of_rows - i -1)),  ctypes.POINTER(ctypes.c_wchar * (nbytes//4))))[0].value )
+                tmpstr = ctypes.c_char_p(data)
+                res.append( tmpstr.value.decode() )
             else:
                 res.append( (ctypes.cast(data+nbytes*i,  ctypes.POINTER(ctypes.c_wchar * (nbytes//4))))[0].value )
         except ValueError:
@@ -129,9 +130,9 @@ _CONVERT_FUNC = {
 
 # Corresponding TAOS_FIELD structure in C
 class TaosField(ctypes.Structure):
-    _fields_ = [('name', ctypes.c_char * 64),
-                ('bytes', ctypes.c_short),
-                ('type', ctypes.c_char)]
+    _fields_ = [('name', ctypes.c_char * 65),
+                ('type', ctypes.c_char),
+                ('bytes', ctypes.c_short)]
 
 # C interface class
 class CTaosInterface(object):
@@ -141,9 +142,15 @@ class CTaosInterface(object):
     libtaos.taos_fetch_fields.restype = ctypes.POINTER(TaosField)
     libtaos.taos_init.restype = None
     libtaos.taos_connect.restype = ctypes.c_void_p
-    libtaos.taos_use_result.restype = ctypes.c_void_p
+    #libtaos.taos_use_result.restype = ctypes.c_void_p
     libtaos.taos_fetch_row.restype = ctypes.POINTER(ctypes.c_void_p)
     libtaos.taos_errstr.restype = ctypes.c_char_p
+    libtaos.taos_subscribe.restype = ctypes.c_void_p
+    libtaos.taos_consume.restype = ctypes.c_void_p
+    libtaos.taos_fetch_lengths.restype = ctypes.c_void_p
+    libtaos.taos_free_result.restype = None
+    libtaos.taos_errno.restype = ctypes.c_int
+    libtaos.taos_query.restype = ctypes.POINTER(ctypes.c_void_p)
 
     def __init__(self, config=None):
         '''
@@ -247,44 +254,79 @@ class CTaosInterface(object):
         #     CTaosInterface.libtaos.close(connection)
 
     @staticmethod
-    def affectedRows(connection):
+    def affectedRows(result):
         """The affected rows after runing query
         """
-        return CTaosInterface.libtaos.taos_affected_rows(connection)
+        return CTaosInterface.libtaos.taos_affected_rows(result)
 
     @staticmethod
-    def useResult(connection):
-        '''Use result after calling self.query
-        '''
-        result = ctypes.c_void_p(CTaosInterface.libtaos.taos_use_result(connection))
+    def subscribe(connection, restart, topic, sql, interval):
+        """Create a subscription
+         @restart boolean, 
+         @sql string, sql statement for data query, must be a 'select' statement.
+         @topic string, name of this subscription
+        """
+        return ctypes.c_void_p(CTaosInterface.libtaos.taos_subscribe(
+            connection,
+            1 if restart else 0,
+            ctypes.c_char_p(topic.encode('utf-8')),
+            ctypes.c_char_p(sql.encode('utf-8')),
+            None,
+            None,
+            interval))
+
+    @staticmethod
+    def consume(sub):
+        """Consume data of a subscription
+        """
+        result = ctypes.c_void_p(CTaosInterface.libtaos.taos_consume(sub))
         fields = []
         pfields = CTaosInterface.fetchFields(result)
-        for i in range(CTaosInterface.fieldsCount(connection)):
+        for i in range(CTaosInterface.libtaos.taos_num_fields(result)):
+            fields.append({'name': pfields[i].name.decode('utf-8'),
+                           'bytes': pfields[i].bytes,
+                           'type': ord(pfields[i].type)})
+        return result, fields
+
+    @staticmethod
+    def unsubscribe(sub, keepProgress):
+        """Cancel a subscription
+        """
+        CTaosInterface.libtaos.taos_unsubscribe(sub, 1 if keepProgress else 0)
+
+    @staticmethod
+    def useResult(result):
+        '''Use result after calling self.query
+        '''
+        fields = []
+        pfields = CTaosInterface.fetchFields(result)
+        for i in range(CTaosInterface.fieldsCount(result)):
             fields.append({'name': pfields[i].name.decode('utf-8'),
                            'bytes': pfields[i].bytes,
                            'type': ord(pfields[i].type)})
 
-        return result, fields
+        return fields
 
     @staticmethod
     def fetchBlock(result, fields):
         pblock = ctypes.c_void_p(0)
-        num_of_rows = CTaosInterface.libtaos.taos_fetch_block(
-            result, ctypes.byref(pblock))
-
-        if num_of_rows == 0:
+        pblock = CTaosInterface.libtaos.taos_fetch_row(result)  
+        if pblock : 
+            num_of_rows = 1
+            isMicro = (CTaosInterface.libtaos.taos_result_precision(result) == FieldType.C_TIMESTAMP_MICRO)
+            blocks = [None] * len(fields)
+            fieldL = CTaosInterface.libtaos.taos_fetch_lengths(result)
+            fieldLen = [ele for ele in ctypes.cast(fieldL,  ctypes.POINTER(ctypes.c_int))[:len(fields)]]
+            for i in range(len(fields)):
+                data = ctypes.cast(pblock, ctypes.POINTER(ctypes.c_void_p))[i]
+                if fields[i]['type'] not in _CONVERT_FUNC:
+                    raise DatabaseError("Invalid data type returned from database")
+                if data is None:
+                    blocks[i] = [None]
+                else:
+                    blocks[i] = _CONVERT_FUNC[fields[i]['type']](data, num_of_rows, fieldLen[i], isMicro)         
+        else:
             return None, 0
-
-        blocks = [None] * len(fields)
-        isMicro = (CTaosInterface.libtaos.taos_result_precision(result) == FieldType.C_TIMESTAMP_MICRO)
-        for i in range(len(fields)):
-            data = ctypes.cast(pblock, ctypes.POINTER(ctypes.c_void_p))[i]
-
-            if fields[i]['type'] not in _CONVERT_FUNC:
-                raise DatabaseError("Invalid data type returned from database")
-            
-            blocks[i] = _CONVERT_FUNC[fields[i]['type']](data, num_of_rows, fields[i]['bytes'], isMicro)
-
         return blocks, abs(num_of_rows)
 
     @staticmethod
@@ -293,8 +335,8 @@ class CTaosInterface(object):
         result.value = None
 
     @staticmethod
-    def fieldsCount(connection):
-        return CTaosInterface.libtaos.taos_field_count(connection)
+    def fieldsCount(result):
+        return CTaosInterface.libtaos.taos_field_count(result)
 
     @staticmethod
     def fetchFields(result):
@@ -342,13 +384,30 @@ class CTaosInterface(object):
     #         return (ctypes.cast(data,  ctypes.c_char_p).value).rstrip('\x00')
 
     @staticmethod
-    def errno(connection):
+    def errno(result):
         """Return the error number.
         """
-        return CTaosInterface.libtaos.taos_errno(connection)
+        return CTaosInterface.libtaos.taos_errno(result)
 
     @staticmethod
-    def errStr(connection):
+    def errStr(result):
         """Return the error styring
         """
-        return CTaosInterface.libtaos.taos_errstr(connection)
+        return CTaosInterface.libtaos.taos_errstr(result)
+
+
+if __name__ == '__main__':
+    cinter = CTaosInterface()
+    conn = cinter.connect()
+    result = cinter.query(conn, 'show databases')
+
+    print('Query Affected rows: {}'.format(cinter.affectedRows(result)))
+
+    fields = CTaosInterface.useResult(result)
+
+    data, num_of_rows = CTaosInterface.fetchBlock(result, fields)
+
+    print(data)
+
+    cinter.freeResult(result)
+    cinter.close(conn)
